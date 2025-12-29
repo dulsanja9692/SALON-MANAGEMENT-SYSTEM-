@@ -1,10 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth"; // Removed "type" keyword
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import bcrypt from "bcryptjs";
 
-const handler = NextAuth({
+// ✅ EXPORT THIS VARIABLE so other files can use it
+export const authOptions: AuthOptions = {
   session: { strategy: "jwt" },
   providers: [
     CredentialsProvider({
@@ -13,21 +14,25 @@ const handler = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials: Partial<Record<"email" | "password", unknown>>, request: Request) {
+      async authorize(credentials) {
         await connectDB();
         
         // Safety Check: Ensure credentials exist
-        if (!credentials || !credentials.email || !credentials.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+            return null;
+        }
 
-        // 1. Find user
-        const user = await User.findOne({ email: credentials.email as string }).select("+password");
+        const user = await User.findOne({ email: credentials.email }).select("+password");
         if (!user) throw new Error("Invalid User");
 
-        // 2. Check Password
-        const isValid = await bcrypt.compare(credentials.password as string, user.password);
+        // Fixed: Added "credentials.password as string" to satisfy TypeScript
+        const isValid = await bcrypt.compare(
+            credentials.password as string, 
+            user.password
+        );
+        
         if (!isValid) throw new Error("Invalid Password");
 
-        // 3. Return User Info
         return { 
           id: user._id.toString(), 
           name: user.name, 
@@ -58,6 +63,8 @@ const handler = NextAuth({
   },
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
