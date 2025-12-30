@@ -1,11 +1,11 @@
-import NextAuth, { AuthOptions } from "next-auth"; // Removed "type" keyword
+import NextAuth, { NextAuthOptions } from "next-auth"; // ✅ CHANGED: AuthOptions -> NextAuthOptions
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import bcrypt from "bcryptjs";
 
-// ✅ EXPORT THIS VARIABLE so other files can use it
-export const authOptions: AuthOptions = {
+// ✅ CHANGED: explicit type is NextAuthOptions
+export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   providers: [
     CredentialsProvider({
@@ -17,7 +17,6 @@ export const authOptions: AuthOptions = {
       async authorize(credentials) {
         await connectDB();
         
-        // Safety Check: Ensure credentials exist
         if (!credentials?.email || !credentials?.password) {
             return null;
         }
@@ -25,9 +24,8 @@ export const authOptions: AuthOptions = {
         const user = await User.findOne({ email: credentials.email }).select("+password");
         if (!user) throw new Error("Invalid User");
 
-        // Fixed: Added "credentials.password as string" to satisfy TypeScript
         const isValid = await bcrypt.compare(
-            credentials.password as string, 
+            credentials.password, 
             user.password
         );
         

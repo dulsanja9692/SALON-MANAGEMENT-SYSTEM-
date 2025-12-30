@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Salon from "@/lib/models/Salon";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next"; // ✅ FIXED: Added "/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-// GET: Fetch all salons (for the Admin Table)
+// GET: Fetch all salons
 export async function GET() {
   try {
     await connectDB();
-    // Sort by newest first
     const salons = await Salon.find({}).sort({ createdAt: -1 });
     return NextResponse.json(salons);
   } catch (error) {
@@ -21,8 +20,7 @@ export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    // Security: Only SuperAdmin can do this
-    if (!session || !session.user || session.user.role !== "SuperAdmin") {
+    if (!session || session.user.role !== "SuperAdmin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
