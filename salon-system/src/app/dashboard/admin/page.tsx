@@ -23,7 +23,7 @@ export default function AdminSalonsPage() {
       const res = await fetch("/api/admin/salons");
       const data = await res.json();
       setSalons(data);
-    } catch (error) { console.error("Failed to load salons"); } 
+    } catch { console.error("Failed to load salons"); } 
     finally { setLoading(false); }
   };
 

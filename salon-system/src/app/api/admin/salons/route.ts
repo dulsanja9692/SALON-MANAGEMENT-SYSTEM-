@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Salon from "@/lib/models/Salon";
-// FIXED: Using standard import for NextAuth v4
-import { getServerSession } from "next-auth"; 
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+// ✅ IMPORT THE NEW AUTH HELPER
+import { auth } from "@/auth"; 
 
 // GET: Fetch all salons
 export async function GET() {
@@ -19,9 +18,10 @@ export async function GET() {
 // PATCH: Approve or Reject a Salon
 export async function PATCH(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    // ✅ USE THE NEW AUTH CHECK
+    const session = await auth(); 
     
-    // Security Check: Only SuperAdmin can approve
+    // Security: Only SuperAdmin can do this
     if (!session || (session.user as any).role !== "SuperAdmin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
