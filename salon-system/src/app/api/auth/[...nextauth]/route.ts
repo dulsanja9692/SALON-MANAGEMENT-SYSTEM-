@@ -1,11 +1,10 @@
-import NextAuth, { NextAuthOptions } from "next-auth"; // ✅ CHANGED: AuthOptions -> NextAuthOptions
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import bcrypt from "bcryptjs";
 
-// ✅ CHANGED: explicit type is NextAuthOptions
-export const authOptions: NextAuthOptions = {
+export const authOptions: AuthOptions = {
   session: { strategy: "jwt" },
   providers: [
     CredentialsProvider({
@@ -14,9 +13,11 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      // FIXED: Defined credentials type to stop TypeScript errors
+      async authorize(credentials: Record<string, string> | undefined) {
         await connectDB();
         
+        // Safety Check
         if (!credentials?.email || !credentials?.password) {
             return null;
         }
@@ -24,11 +25,7 @@ export const authOptions: NextAuthOptions = {
         const user = await User.findOne({ email: credentials.email }).select("+password");
         if (!user) throw new Error("Invalid User");
 
-        const isValid = await bcrypt.compare(
-            credentials.password, 
-            user.password
-        );
-        
+        const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) throw new Error("Invalid Password");
 
         return { 
@@ -42,6 +39,7 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
+    // We use 'any' here to prevent the linter from fighting custom fields
     async session({ session, token }: any) {
       if (token && session.user) {
         session.user.role = token.role;
