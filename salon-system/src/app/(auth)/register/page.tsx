@@ -1,108 +1,180 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Store, Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react"; // 1. Import Eye icons
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ salonName: "", ownerName: "", email: "", password: "" });
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  
+  // 2. State to handle password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setLoading(true);
+
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match!");
+      setLoading(false);
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      setLoading(false);
+      return;
+    }
 
     try {
-      const res = await fetch("/api/register", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Registration failed");
-
-      // Success! Redirect to login
-      router.push("/login?registered=true");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      if (res.ok) {
+        router.push("/login?registered=true");
+      } else {
+        setError(data.error || "Registration failed");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50">
-      <Card className="w-112.5 border-t-4 border-primary shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-primary">
-            <Store size={24} />
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-slate-800">Create Account</h1>
+          <p className="mt-2 text-slate-600">Join Luxe Salon System today</p>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center">
+            {error}
           </div>
-          <CardTitle className="text-2xl font-bold text-slate-800">Register Your Salon</CardTitle>
-          <CardDescription>Join Luxe Salon Management</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="rounded bg-red-50 p-3 text-sm text-red-500">{error}</div>}
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Salon Name</label>
-              <Input 
-                required
-                placeholder="e.g. Bella Beauty"
-                onChange={(e) => setForm({ ...form, salonName: e.target.value })}
-              />
-            </div>
+        )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Owner Name</label>
-              <Input 
-                required
-                placeholder="Your Full Name"
-                onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Salon / Owner Name</label>
+            <input
+              type="text"
+              required
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. Velora Salon"
+            />
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <Input 
-                type="email"
-                required
-                placeholder="owner@example.com"
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
+          {/* Email Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Email Address</label>
+            <input
+              type="email"
+              required
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="owner@example.com"
+            />
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
-              <Input 
-                type="password"
+          {/* Password Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Password</label>
+            <div className="relative mt-1">
+              <input
+                // 3. Toggle type between 'text' and 'password'
+                type={showPassword ? "text" : "password"}
                 required
-                placeholder="••••••••"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="••••••••"
               />
+              {/* 4. The Eye Button */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
+          </div>
 
-            <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-rose-700">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}
-            </Button>
-
-            <div className="text-center text-sm text-slate-500">
-              Already have an account?{" "}
-              <Link href="/login" className="font-medium text-primary hover:underline">
-                Sign in
-              </Link>
+          {/* Confirm Password Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
+            <div className="relative mt-1">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                className={`w-full rounded-lg border px-3 py-2 pr-10 focus:outline-none focus:ring-1 ${
+                   form.confirmPassword && form.password !== form.confirmPassword 
+                   ? "border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50" 
+                   : "border-slate-300 focus:border-rose-500 focus:ring-rose-500"
+                }`}
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                placeholder="••••••••"
+              />
+              {/* 5. The Eye Button for Confirm Password */}
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+            
+            {form.confirmPassword && form.password !== form.confirmPassword && (
+                <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-rose-600 px-4 py-2 font-medium text-white hover:bg-rose-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? <Loader2 className="animate-spin" size={20} /> : "Create Account"}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-slate-600">
+          Already have an account?{" "}
+          <Link href="/login" className="font-medium text-rose-600 hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
