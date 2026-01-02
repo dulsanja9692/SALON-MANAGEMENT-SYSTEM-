@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/Providers"; // 1. Import this
+import { Providers } from "@/components/Providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Luxe Salon",
-  description: "Salon Management System",
+  description: "Modern Salon Management System",
+  icons: {
+    icon: "/icon.png", 
+  },
 };
 
 export default function RootLayout({
@@ -18,7 +21,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* 2. Wrap EVERYTHING inside Providers */}
         <Providers>
           {children}
         </Providers>

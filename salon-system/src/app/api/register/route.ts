@@ -6,39 +6,46 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { salonName, ownerName, email, password } = await req.json();
-
     await connectDB();
+    
+    // 1. Get the data from the frontend
+    const body = await req.json();
+    const { name, email, password } = body; // 👈 We grab 'name' here
 
-    // 1. Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return NextResponse.json({ error: "Email already registered" }, { status: 400 });
+    // Validation
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
     }
 
-    // 2. Create the Salon first (Status: Pending by default)
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+    }
+
+    // 2. Create the Salon first
+    // We use the 'name' from the form as the Salon Name
     const newSalon = await Salon.create({
-      name: salonName,
-      status: "Pending", // Important for Ticket 153 later
+      name: name, 
+      status: "Pending", 
     });
 
-    // 3. Hash the password
+    // 3. Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4. Create the Salon Owner linked to that Salon
+    // 4. Create the Owner User (Linked to the Salon)
     await User.create({
-      name: ownerName,
+      name: name, // The owner also uses this name
       email,
       password: hashedPassword,
-      role: "SalonOwner",
-      salonId: newSalon._id,
-      isActive: true, // They can login, but might see a "Pending" screen
+      role: "SalonOwner", // Automatically assign Owner role
+      salonId: newSalon._id, // Link them to their new salon
     });
 
-    return NextResponse.json({ message: "Registration successful" }, { status: 201 });
+    return NextResponse.json({ message: "Registration Successful!" }, { status: 201 });
 
-  } catch (error) {
-    console.error("Registration Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Registration Error:", error); // This helps debug in console
+    return NextResponse.json({ error: error instanceof Error ? error.message : "An error occurred" }, { status: 500 });
   }
 }
