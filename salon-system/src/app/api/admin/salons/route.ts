@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import Salon from "@/lib/models/Salon";
+import Salon from "@/models/Salon";
 import { auth } from "@/auth"; 
 
 // ✅ CRITICAL FIX: Forces Node.js runtime to prevent crashes with bcrypt/mongoose

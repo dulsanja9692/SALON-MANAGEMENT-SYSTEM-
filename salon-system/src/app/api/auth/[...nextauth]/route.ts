@@ -2,7 +2,7 @@ import NextAuth, { AuthOptions, Session } from "next-auth";
 import { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB } from "@/lib/db";
-import User from "@/lib/models/User";
+import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import { handlers } from "@/auth";
 
