@@ -1,33 +1,51 @@
+// src/scripts/seed.ts
 import mongoose from "mongoose";
-import User from "../models/User";
 import bcrypt from "bcryptjs";
+import User from "../models/User"; // Ensure this path matches your User model
 import dotenv from "dotenv";
-dotenv.config({ path: ".env" });
 
-const seed = async () => {
+// Load environment variables
+dotenv.config({ path: ".env.local" });
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error("❌ MONGODB_URI is missing in .env.local");
+  process.exit(1);
+}
+
+const seedSuperAdmin = async () => {
   try {
-      await mongoose.connect(process.env.MONGODB_URI!);
-      // Check if admin exists
-      const exists = await User.findOne({ email: "admin@salon.com" });
-      if (exists) {
-          console.log("Admin already exists.");
-          process.exit();
-      }
+    await mongoose.connect(MONGODB_URI);
+    console.log("✅ Connected to Database");
 
-      // Create Admin
-      const pass = await bcrypt.hash("admin123", 10);
-      await User.create({ 
-          name: "Super Admin", 
-          email: "admin@salon.com", 
-          password: pass, 
-          role: "SuperAdmin" 
-      });
-
-      console.log("SUCCESS: Admin created (admin@salon.com / admin123)");
+    // Check if Super Admin already exists
+    const existingAdmin = await User.findOne({ role: "SUPER_ADMIN" });
+    if (existingAdmin) {
+      console.log("⚠️ Super Admin already exists.");
       process.exit();
-  } catch (e) {
-      console.error(e);
-      process.exit(1);
+    }
+
+    // Create Super Admin
+    const passwordHash = await bcrypt.hash("Admin@123", 10); // Default Password
+    
+    await User.create({
+      name: "Super Admin",
+      email: "admin@velora.com",
+      passwordHash: passwordHash,
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+    });
+
+    console.log("🎉 Super Admin Created Successfully!");
+    console.log("📧 Email: admin@velora.com");
+    console.log("🔑 Password: Admin@123");
+
+  } catch (error) {
+    console.error("❌ Error seeding database:", error);
+  } finally {
+    mongoose.connection.close();
   }
 };
-seed();
+
+seedSuperAdmin();

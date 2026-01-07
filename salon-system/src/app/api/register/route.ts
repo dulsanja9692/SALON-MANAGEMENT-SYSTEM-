@@ -31,16 +31,15 @@ export async function POST(req: Request) {
     });
 
     // 3. Hash Password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // ✅ CORRECT
+const hashedPassword = await bcrypt.hash(password, 10); // Encrypt it first
 
-    // 4. Create the Owner User (Linked to the Salon)
-    await User.create({
-      name: name, // The owner also uses this name
-      email,
-      password: hashedPassword,
-      role: "SalonOwner", // Automatically assign Owner role
-      salonId: newSalon._id, // Link them to their new salon
-    });
+await User.create({
+  name,
+  email,
+  passwordHash: hashedPassword, // <--- Save the encrypted version
+  salonId: newSalon._id, // Link the user to the created salon
+});
 
     return NextResponse.json({ message: "Registration Successful!" }, { status: 201 });
 

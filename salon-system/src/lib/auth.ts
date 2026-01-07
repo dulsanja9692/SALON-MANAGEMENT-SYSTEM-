@@ -1,83 +1,67 @@
-// src/lib/auth.ts
-import { NextAuthOptions, Session } from "next-auth";
-import { JWT } from "next-auth/jwt";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import mongoose from "mongoose";
+import { connectDB } from "@/lib/db";
 import User from "@/models/User";
-import Role from "@/models/Role";
 import bcrypt from "bcryptjs";
-import { SYSTEM_ROLES, PERMISSIONS } from "@/config/permissions";
-
-// ... rest of your code
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 Days
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // 1. Connect DB
-        if (mongoose.connection.readyState !== 1) await mongoose.connect(process.env.MONGODB_URI!);
-
-        // 2. Find User
+        await connectDB();
+        
         const user = await User.findOne({ email: credentials?.email });
         if (!user) throw new Error("No user found");
 
-        // 3. Check Password
-        const isValid = await bcrypt.compare(credentials!.password as string, user.passwordHash as string);
+        const isValid = await bcrypt.compare(credentials!.password, user.passwordHash);
         if (!isValid) throw new Error("Invalid password");
 
-        // 4. LOAD PERMISSIONS DYNAMICALLY
-        let finalPermissions: string[] = [];
-
-        if (user.role === SYSTEM_ROLES.SALON_OWNER || user.role === SYSTEM_ROLES.SUPER_ADMIN) {
-          finalPermissions = Object.values(PERMISSIONS);
-        } else if (user.role === SYSTEM_ROLES.USER) {
-          finalPermissions = [];
-        } else {
-          // Staff: Look up their Custom Role in the DB
-          const roleData = await Role.findOne({ name: user.role, salonId: user.salonId });
-          finalPermissions = roleData ? roleData.permissions : [];
-          finalPermissions.push(PERMISSIONS.PROFILE_UPDATE);
-        }
-
-        // 5. Return the extended User object
-        // (Now that we added step 1, the red lines below will disappear)
-        return {
-          id: user._id.toString(),
-          email: user.email,
+        return { 
+          id: user._id.toString(), 
+          email: user.email, 
+          name: user.name, 
           role: user.role,
-          permissions: finalPermissions,
-          status: user.status,
-          salonId: user.salonId?.toString(),
+          status: user.status
         };
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: JWT; user?: { id: string; role: string; permissions: string[]; status: string; salonId?: string } }) {
+    async jwt({ token, user, trigger, session }) {
+      // 1. Initial Sign In
       if (user) {
-        token.id = user.id;
         token.role = user.role;
-        token.permissions = user.permissions;
+        token.id = user.id;
         token.status = user.status;
-        token.salonId = user.salonId;
       }
+
+      // 2. 👇 NEW: Listen for Manual Updates from Frontend
+      if (trigger === "update" && session) {
+        if (session.name) token.name = session.name;
+        if (session.status) token.status = session.status; // Update Status in Token
+      }
+      
       return token;
     },
-    async session({ session, token }: { session: Session; token: JWT }) {
+    async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
         session.user.role = token.role as string;
-        session.user.permissions = token.permissions as string[];
-        session.user.status = token.status as string;
-        session.user.salonId = token.salonId as string;
+        session.user.id = token.id as string;
+        session.user.status = token.status as string; // Pass updated status to client
       }
       return session;
-    }
-  }
+    },
+  },
+  pages: {
+    signIn: "/login",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 };

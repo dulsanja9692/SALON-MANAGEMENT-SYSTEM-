@@ -1,58 +1,27 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/db";
-import Salon from "@/models/Salon";
-import { auth } from "@/auth"; 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createSalonWithOwner } from "@/services/salonService";
 
-// ✅ CRITICAL FIX: Forces Node.js runtime to prevent crashes with bcrypt/mongoose
-export const runtime = "nodejs";
-
-// GET: Fetch all salons (Visible to authenticated users, or you can restrict this too)
-export async function GET() {
+export async function POST(req: Request) {
   try {
-    await connectDB();
-    // Fetch salons, newest first
-    const salons = await Salon.find({}).sort({ createdAt: -1 });
-    return NextResponse.json(salons);
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch salons" }, { status: 500 });
-  }
-}
-
-// PATCH: Approve or Reject a Salon (Protected: SuperAdmin ONLY)
-export async function PATCH(req: Request) {
-  try {
-    const session = await auth(); 
-    
-    // 1. Check if logged in
-    if (!session) {
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+    // 1. Security Check: Are you a Super Admin?
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // 2. 🛡️ SECURITY CHECK: Only SuperAdmin can approve/reject
-    // This effectively stops random users from approving salons.
-    if ((session.user as { role: string }).role !== "SuperAdmin") {
-      return NextResponse.json({ error: "Unauthorized: SuperAdmin access required" }, { status: 403 });
-    }
+    // 2. Get Data from Request
+    const body = await req.json();
 
-    const { salonId, status } = await req.json();
+    // 3. Call the Service
+    const result = await createSalonWithOwner(body);
 
-    await connectDB();
-
-    // 3. Update the salon
-    const updatedSalon = await Salon.findByIdAndUpdate(
-      salonId, 
-      { status }, 
-      { new: true } // Return the updated document so the UI sees the change
-    );
-
-    if (!updatedSalon) {
-        return NextResponse.json({ error: "Salon not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(updatedSalon);
+    return NextResponse.json({ success: true, data: result }, { status: 201 });
 
   } catch (error) {
-    console.error("Update Error:", error);
-    return NextResponse.json({ error: "Failed to update salon" }, { status: 500 });
+    // Fix "Unexpected any" by casting error safely
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return NextResponse.json({ error: errorMessage }, { status: 400 });
   }
 }

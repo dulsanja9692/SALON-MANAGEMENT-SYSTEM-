@@ -1,17 +1,30 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose from "mongoose";
 
-const SalonSchema = new Schema({
-  name: { type: String, required: true },
-  ownerId: { type: Schema.Types.ObjectId, ref: 'User' }, 
-  status: { 
-    type: String, 
-    enum: ['Pending', 'Active', 'Rejected', 'Suspended'], 
-    default: 'Pending' 
+const SalonSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Salon name is required"],
+    },
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+    contactNumber: {
+      type: String,
+      default: "",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
-  createdAt: { type: Date, default: Date.now },
-  address: { type: String },
-  contactNumber: { type: String },
-});
+  { timestamps: true }
+);
 
-// Check if model exists before creating to prevent overwrite errors
 export default mongoose.models.Salon || mongoose.model("Salon", SalonSchema);
