@@ -6,45 +6,55 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    await connectDB();
-    
-    // 1. Get the data from the frontend
-    const body = await req.json();
-    const { name, email, password } = body; // 👈 We grab 'name' here
+    const { name, email, password } = await req.json();
 
-    // Validation
+    // 1. Validate Input
     if (!name || !email || !password) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // Check if user exists
+    await connectDB();
+
+    // 2. Check if email exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+      return NextResponse.json({ error: "Email already registered" }, { status: 400 });
     }
 
-    // 2. Create the Salon first
-    // We use the 'name' from the form as the Salon Name
-    const newSalon = await Salon.create({
-      name: name, 
-      status: "Pending", 
+    // 3. Create User Instance
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const newUser = new User({
+      name: name,
+      email: email,
+      passwordHash: hashedPassword,
+      role: "SALON_OWNER",
+      status: "PENDING_DETAILS", 
     });
 
-    // 3. Hash Password
-    // ✅ CORRECT
-const hashedPassword = await bcrypt.hash(password, 10); // Encrypt it first
+    // 👇 SAVE USER FIRST (Generates the _id)
+    const savedUser = await newUser.save();
 
-await User.create({
-  name,
-  email,
-  passwordHash: hashedPassword, // <--- Save the encrypted version
-  salonId: newSalon._id, // Link the user to the created salon
-});
+    // 4. Create Salon (Now we have the ownerId!)
+    const newSalon = new Salon({
+      name: `${name}'s Salon`, 
+      ownerId: savedUser._id,  // 👈 FIX: This prevents the error
+      email: email,
+      contactNumber: "0000000000",
+      address: "Address Pending",
+    });
 
-    return NextResponse.json({ message: "Registration Successful!" }, { status: 201 });
+    const savedSalon = await newSalon.save();
+
+    // 5. Update User with Salon ID
+    savedUser.salonId = savedSalon._id;
+    await savedUser.save();
+
+    return NextResponse.json({ success: true }, { status: 201 });
 
   } catch (error: unknown) {
-    console.error("Registration Error:", error); // This helps debug in console
-    return NextResponse.json({ error: error instanceof Error ? error.message : "An error occurred" }, { status: 500 });
+    console.error("Registration Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Registration failed";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

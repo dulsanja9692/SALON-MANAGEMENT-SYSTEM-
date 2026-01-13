@@ -1,6 +1,6 @@
-import { NextAuthOptions } from "next-auth";
+import { NextAuthOptions } from "next-auth"; 
 import CredentialsProvider from "next-auth/providers/credentials";
-import { connectDB } from "@/lib/db";
+import { connectDB } from "@/lib/db"; // 👈 FIXED: Added curly braces { }
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 
@@ -35,27 +35,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // 1. Initial Sign In
+    async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
         token.id = user.id;
         token.status = user.status;
       }
-
-      // 2. 👇 NEW: Listen for Manual Updates from Frontend
-      if (trigger === "update" && session) {
-        if (session.name) token.name = session.name;
-        if (session.status) token.status = session.status; // Update Status in Token
-      }
-      
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
-        session.user.status = token.status as string; // Pass updated status to client
+        session.user.status = token.status as string;
       }
       return session;
     },

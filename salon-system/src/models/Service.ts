@@ -1,15 +1,17 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose from "mongoose";
 
-const ServiceSchema = new Schema(
-  {
-    name: { type: String, required: true }, // e.g. "Men's Haircut"
-    description: { type: String },
-    price: { type: Number, required: true }, // e.g. 25.00
-    duration: { type: Number, required: true }, // in minutes, e.g. 30
-    salonId: { type: Schema.Types.ObjectId, ref: "Salon", required: true },
-    isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true }
-);
+const ServiceSchema = new mongoose.Schema({
+  salonId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+  duration: { type: String, required: true }, // e.g., "30 mins", "1 hour"
+  status: { type: String, default: "ACTIVE" }, // ACTIVE or INACTIVE
+  createdAt: { type: Date, default: Date.now },
+});
 
-export default mongoose.models.Service || mongoose.model("Service", ServiceSchema);
+// Prevent model overwrite error in dev
+if (mongoose.models.Service) {
+  delete mongoose.models.Service;
+}
+
+export default mongoose.model("Service", ServiceSchema);

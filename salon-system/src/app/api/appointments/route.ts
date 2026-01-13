@@ -1,46 +1,46 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Appointment from "@/models/Appointment";
-import Service from "@/models/Service";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
+export async function GET() {
+  try {
+    await connectDB();
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user.salonId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Fetch appointments only for this salon
+    const appointments = await Appointment.find({ salonId: session.user.salonId })
+      .sort({ date: 1, time: 1 }); // Sort by date/time
+
+    return NextResponse.json(appointments);
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch appointments" }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
   try {
     await connectDB();
-    
-    // 1. Get data from the frontend request
+    const session = await getServerSession(authOptions);
     const body = await req.json();
-    const { customerId, staffId, serviceId, date, salonId } = body;
 
-    // 2. Validate: Check if everything is there
-    if (!customerId || !staffId || !serviceId || !date || !salonId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!session || !session.user.salonId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 3. Find the Service details (We need the duration to calculate end time)
-    const service = await Service.findById(serviceId);
-    if (!service) {
-      return NextResponse.json({ error: "Service not found" }, { status: 404 });
-    }
-
-    // 4. Create the Appointment
     const newAppointment = await Appointment.create({
-      salonId,
-      customer: customerId,
-      staff: staffId,
-      service: serviceId,
-      appointmentDate: new Date(date), // Ensure it's a valid Date object
-      duration: service.duration,      // Automatically pull duration from the service
-      status: "confirmed"
+      ...body,
+      salonId: session.user.salonId, // Automatically link to logged-in salon
+      status: "PENDING" // Default status
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Appointment Booked Successfully!", 
-      appointment: newAppointment 
-    }, { status: 201 });
-
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(newAppointment, { status: 201 });
+  } catch  {
+    return NextResponse.json({ error: "Failed to create appointment" }, { status: 500 });
   }
 }
